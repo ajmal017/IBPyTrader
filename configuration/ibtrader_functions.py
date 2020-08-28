@@ -1,10 +1,24 @@
 from ib_insync import *
 from  configuration.ibtrader_settings import * 
+from  configuration.timeframe_class import * 
+from  configuration.stock_data_class import *
+import matplotlib.dates as mpl_dates
 import pandas as pd
 import numpy as np
 import glob
 
 
+
+def getData(file_data):
+    
+    dfData = pd.read_csv(file_data)
+    dfData.Date = pd.to_datetime(dfData.Date)        
+    dfData.columns = dfData.columns.str.lower()
+    dfData = dfData[[StockDataFields.DATE.value, StockDataFields.OPEN.value, StockDataFields.HIGH.value, StockDataFields.LOW.value,StockDataFields.CLOSE.value]]
+    dfData = dfData[dfData[StockDataFields.CLOSE.value].notnull()]
+    dfData.reset_index(inplace=True)
+    return dfData
+    
 def getRTH(Contract):
     return True
 
@@ -48,10 +62,10 @@ def isFarFromLevel(l,levels, mean):
 # levels = []
 #  for i in range(2,df.shape[0]-2):
 #    if isSupport(df,i):
-#     levels.append((i,df['low'][i]))
+#     levels.append((i,df[StockDataFields.LOW.value][i]))
 #    elif isResistance(df,i):
-#     levels.append((i,df['high'][i]))
-#    s =  np.mean(df['high'] - df['low'])
+#     levels.append((i,df[StockDataFields.HIGH.value][i]))
+#    s =  np.mean(df[StockDataFields.HIGH.value] - df[StockDataFields.LOW.value])
 # def isFarFromLevel(l, levels):
 #    return np.sum([abs(l-x) < s  for x in levels]) == 0
 
@@ -63,9 +77,14 @@ def fileExists(symbol, path):
    else:
         return False
 
-def getFile(symbol, path):
-   #print(path + symbol + "_*.csv")
-   mylist = [f for f in glob.glob(path + symbol + "_*.csv")]
+def getFile(symbol, timeFrame):   
+   path =  SETTINGS_REALPATH_STOCK_DATA_WEEK
+   if timeFrame == str(IBTraderTimeFrame.MONTH.value):
+     path =  SETTINGS_REALPATH_STOCK_DATA_MONTH
+   elif timeFrame ==  str(IBTraderTimeFrame.DAY.value):
+     path =  SETTINGS_REALPATH_STOCK_DATA_DAY  
+
+   mylist = [f for f in glob.glob(path + symbol + "*.csv")]  
    if len(mylist)>0:
         return mylist[0]
    else:
@@ -77,18 +96,18 @@ def getSupportResistances(dfData):
 
     support_levels = []
     resistance_levels  = []
-    mean_value =  np.mean(dfData['high'] - dfData['low'])
+    mean_value =  np.mean(dfData[StockDataFields.HIGH.value] - dfData[StockDataFields.LOW.value])
     for i in range(2,dfData.shape[0]-2):
         # Finally, let’s create a list that will contain the levels we find. Each level is a tuple whose first element is the index of the signal candle and the second element is the price value.
         #print (support_levels)
-        if isSupport(dfData,i,"low",PEAKS_VALLEYS_PRICE_):
-            l = dfData['low'][i]
+        if isSupport(dfData,i,StockDataFields.LOW.value,PEAKS_VALLEYS_PRICE_):
+            l = dfData[StockDataFields.LOW.value][i]
             #print (isFarFromLevel(l,support_levels,mean_value))
             if isFarFromLevel(l,support_levels,mean_value):            
                 support_levels.append((i,l))
             #print (support_levels)
-        elif isResistance(dfData,i,"high",PEAKS_VALLEYS_PRICE_):
-            l = dfData['high'][i]
+        elif isResistance(dfData,i,StockDataFields.HIGH.value,PEAKS_VALLEYS_PRICE_):
+            l = dfData[StockDataFields.HIGH.value][i]
             if isFarFromLevel(l,resistance_levels,mean_value):
                 resistance_levels.append((i,l))        
     return resistance_levels,support_levels
